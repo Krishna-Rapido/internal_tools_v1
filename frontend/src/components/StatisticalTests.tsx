@@ -308,16 +308,100 @@ export function StatisticalTests({ preData, postData, testCohort, controlCohort,
                     {selectedTestConfig.parameters.map((param) => (
                         <div key={param.name} className="input-group">
                             <label className="input-label">{param.label}</label>
-                            <input
-                                type={param.type}
-                                className="glass-input"
-                                value={parameters[param.name] || param.default || ''}
-                                onChange={(e) => setParameters(prev => ({
-                                    ...prev,
-                                    [param.name]: param.type === 'number' ? parseFloat(e.target.value) : e.target.value
-                                }))}
-                                placeholder={param.default?.toString()}
-                            />
+                            {param.type === 'number' ? (
+                                <div className="flex items-center gap-2" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                                    <input
+                                        type="number"
+                                        step="0.05"
+                                        min="0"
+                                        max="1"
+                                        className="glass-input text-center max-w-24"
+                                        style={{ width: '96px', flexShrink: 0 }}
+                                        value={parameters[param.name] || param.default || ''}
+                                        onChange={(e) => {
+                                            const value = parseFloat(e.target.value);
+                                            if (!isNaN(value)) {
+                                                setParameters(prev => ({
+                                                    ...prev,
+                                                    [param.name]: Math.round(value * 100) / 100
+                                                }));
+                                            }
+                                        }}
+                                        onKeyDown={(e) => {
+                                            // Handle arrow keys for increment/decrement
+                                            if (e.key === 'ArrowUp') {
+                                                e.preventDefault();
+                                                const currentValue = parameters[param.name] || param.default || 0;
+                                                const newValue = Math.min(1, currentValue + 0.05);
+                                                setParameters(prev => ({
+                                                    ...prev,
+                                                    [param.name]: Math.round(newValue * 100) / 100
+                                                }));
+                                            } else if (e.key === 'ArrowDown') {
+                                                e.preventDefault();
+                                                const currentValue = parameters[param.name] || param.default || 0;
+                                                const newValue = Math.max(0, currentValue - 0.05);
+                                                setParameters(prev => ({
+                                                    ...prev,
+                                                    [param.name]: Math.round(newValue * 100) / 100
+                                                }));
+                                            }
+                                            // Allow typing numbers, backspace, delete, tab, enter, decimal point
+                                            else if (![8, 9, 13, 46, 190, 110].includes(e.keyCode) &&
+                                                (e.keyCode < 48 || e.keyCode > 57) &&
+                                                (e.keyCode < 96 || e.keyCode > 105)) {
+                                                e.preventDefault();
+                                            }
+                                        }}
+                                        placeholder={param.default?.toString()}
+                                    />
+                                    <div className="flex gap-1" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', flexShrink: 0 }}>
+                                        <button
+                                            type="button"
+                                            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors border border-gray-200"
+                                            style={{ width: '32px', height: '32px', flexShrink: 0 }}
+                                            onClick={() => {
+                                                const currentValue = parameters[param.name] || param.default || 0;
+                                                const newValue = Math.max(0, currentValue - 0.05);
+                                                setParameters(prev => ({
+                                                    ...prev,
+                                                    [param.name]: Math.round(newValue * 100) / 100
+                                                }));
+                                            }}
+                                            title="Decrease by 0.05"
+                                        >
+                                            <span className="text-xs font-bold leading-none">−</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors border border-gray-200"
+                                            style={{ width: '32px', height: '32px', flexShrink: 0 }}
+                                            onClick={() => {
+                                                const currentValue = parameters[param.name] || param.default || 0;
+                                                const newValue = Math.min(1, currentValue + 0.05);
+                                                setParameters(prev => ({
+                                                    ...prev,
+                                                    [param.name]: Math.round(newValue * 100) / 100
+                                                }));
+                                            }}
+                                            title="Increase by 0.05"
+                                        >
+                                            <span className="text-xs font-bold leading-none">+</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <input
+                                    type={param.type}
+                                    className="glass-input"
+                                    value={parameters[param.name] || param.default || ''}
+                                    onChange={(e) => setParameters(prev => ({
+                                        ...prev,
+                                        [param.name]: e.target.value
+                                    }))}
+                                    placeholder={param.default?.toString()}
+                                />
+                            )}
                             <p className="text-xs text-gray-500 mt-1">{param.description}</p>
                         </div>
                     ))}

@@ -210,6 +210,85 @@ body {
   color: #9ca3af;
 }
 
+/* Number Input with Increment/Decrement */
+.glass-input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.glass-input[type="number"]::-webkit-outer-spin-button,
+.glass-input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Increment/Decrement Button Hover Effects */
+.glass-input:focus+button,
+.glass-input:focus+*+button {
+  opacity: 1;
+}
+
+/* Better button positioning for number inputs */
+.relative .glass-input:focus~button {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+/* Stacked increment/decrement buttons */
+.relative .glass-input:focus~div button {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(102, 126, 234, 0.2);
+}
+
+/* Compact inline spinner buttons */
+.flex .glass-input.max-w-24 {
+  width: 96px;
+  min-width: 80px;
+  max-width: 120px;
+  flex-shrink: 0;
+}
+
+/* Inline increment/decrement buttons container */
+.flex .flex.gap-1 {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Inline increment/decrement buttons */
+.flex div button {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(248, 250, 252, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  font-size: 14px;
+  line-height: 1;
+  min-width: 32px;
+  flex-shrink: 0;
+}
+
+.flex div button:hover {
+  background: rgba(239, 246, 255, 1);
+  border-color: rgba(102, 126, 234, 0.3);
+  color: #4338ca;
+}
+
+.flex div button:active {
+  transform: scale(0.95);
+}
+
+/* Ensure proper horizontal layout for parameter inputs */
+.input-group .flex.items-center {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
 /* Metric Pills */
 .metric-pills {
   display: flex;
