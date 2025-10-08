@@ -13,6 +13,8 @@ interface CohortAggregationData {
     totalExpCaps: number;
     visitedCaps: number;
     clickedCaptain: number;
+    pitch_centre_card_clicked: number;
+    pitch_centre_card_visible: number;
     exploredCaptains: number;
     exploredCaptains_Subs: number;
     exploredCaptains_EPKM: number;
@@ -70,7 +72,31 @@ export function CohortDataGrid({ data, title }: CohortDataGridProps) {
         },
         {
             field: 'clickedCaptain',
-            headerName: 'Clicked',
+            headerName: 'CT Clicked',
+            sortable: true,
+            filter: 'agNumberColumnFilter',
+            width: 100,
+            valueFormatter: (params) => {
+                const num = parseFloat(params.value);
+                return isNaN(num) ? '0' : num.toLocaleString('en-US');
+            },
+            cellClass: 'text-right'
+        },
+        {
+            field: 'pitch_centre_card_clicked',
+            headerName: 'PC Clicked',
+            sortable: true,
+            filter: 'agNumberColumnFilter',
+            width: 100,
+            valueFormatter: (params) => {
+                const num = parseFloat(params.value);
+                return isNaN(num) ? '0' : num.toLocaleString('en-US');
+            },
+            cellClass: 'text-right'
+        },
+        {
+            field: 'pitch_centre_card_visible',
+            headerName: 'PC Visible',
             sortable: true,
             filter: 'agNumberColumnFilter',
             width: 100,

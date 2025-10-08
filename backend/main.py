@@ -290,7 +290,7 @@ def get_cohort_aggregation(df: pd.DataFrame = Depends(get_session_df)) -> Cohort
 
     # Check if required columns exist
     required_columns = [
-        "totalExpCaps", "visitedCaps", "clickedCaptain", "exploredCaptains",
+        "totalExpCaps", "visitedCaps", "clickedCaptain", "count_captain_pitch_centre_card_clicked_city","count_captain_pitch_centre_card_visible_city", "exploredCaptains",
         "exploredCaptains_Subs", "exploredCaptains_EPKM", "exploredCaptains_FlatCommission",
         "exploredCaptains_CM", "confirmedCaptains", "confirmedCaptains_Subs",
         "confirmedCaptains_Subs_purchased", "confirmedCaptains_Subs_purchased_weekend",
@@ -310,6 +310,8 @@ def get_cohort_aggregation(df: pd.DataFrame = Depends(get_session_df)) -> Cohort
         "totalExpCaps": "nunique",
         "visitedCaps": "nunique",
         'clickedCaptain': 'nunique',
+        'count_captain_pitch_centre_card_clicked_city': 'sum',
+        'count_captain_pitch_centre_card_visible_city': 'sum',
         'exploredCaptains': 'nunique',
         'exploredCaptains_Subs': 'nunique',
         'exploredCaptains_EPKM': 'nunique',
@@ -328,6 +330,7 @@ def get_cohort_aggregation(df: pd.DataFrame = Depends(get_session_df)) -> Cohort
     # Calculate the ratio columns
     result['Visit2Click'] = result['clickedCaptain'] / result['visitedCaps']
     result['Base2Visit'] = result['visitedCaps'] / result['totalExpCaps']
+    result['Click2Confirm'] = result['confirmedCaptains'] / result['clickedCaptain']
 
     # Handle division by zero
     result['Visit2Click'] = result['Visit2Click'].fillna(0)
@@ -341,6 +344,8 @@ def get_cohort_aggregation(df: pd.DataFrame = Depends(get_session_df)) -> Cohort
             totalExpCaps=float(row['totalExpCaps']),
             visitedCaps=float(row['visitedCaps']),
             clickedCaptain=float(row['clickedCaptain']),
+            pitch_centre_card_clicked=float(row['count_captain_pitch_centre_card_clicked_city']),
+            pitch_centre_card_visible=float(row['count_captain_pitch_centre_card_visible_city']),
             exploredCaptains=float(row['exploredCaptains']),
             exploredCaptains_Subs=float(row['exploredCaptains_Subs']),
             exploredCaptains_EPKM=float(row['exploredCaptains_EPKM']),

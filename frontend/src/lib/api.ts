@@ -70,6 +70,8 @@ export type CohortAggregationRow = {
     totalExpCaps: number;
     visitedCaps: number;
     clickedCaptain: number;
+    pitch_centre_card_clicked: number;
+    pitch_centre_card_visible: number;
     exploredCaptains: number;
     exploredCaptains_Subs: number;
     exploredCaptains_EPKM: number;

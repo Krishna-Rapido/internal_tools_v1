@@ -8,6 +8,7 @@ import { Charts } from './components/Charts';
 import { MetricBar } from './components/MetricBar';
 import { StatisticalTests } from './components/StatisticalTests';
 import { CohortDataGrid } from './components/CohortDataGrid';
+import { SummaryStatsTable } from './components/SummaryStatsTable';
 import { fetchFunnel, fetchCohortAggregation } from './lib/api';
 import type { FunnelResponse, UploadResponse, CohortAggregationResponse } from './lib/api';
 
@@ -64,6 +65,7 @@ function App() {
   const [aggByMetric, setAggByMetric] = useState<Record<string, 'sum' | 'mean' | 'count'>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [visibleSummaries, setVisibleSummaries] = useState<Set<string>>(new Set());
 
   // Handle adding metrics from Available Metrics to Additional Metrics
   const handleAddMetricsToSelection = (metricsToAdd: string[]) => {
@@ -88,6 +90,81 @@ function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Calculate summary statistics for a metric
+  const calculateSummaryStats = (funnel: FunnelResponse, _metric: string) => {
+    const preTestData = funnel.pre_series
+      .filter(p => p.cohort.includes('TEST') || p.cohort.includes('test'))
+      .map(p => p.value)
+      .filter(v => !isNaN(v));
+
+    const postTestData = funnel.post_series
+      .filter(p => p.cohort.includes('TEST') || p.cohort.includes('test'))
+      .map(p => p.value)
+      .filter(v => !isNaN(v));
+
+    const preControlData = funnel.pre_series
+      .filter(p => p.cohort.includes('CONTROL') || p.cohort.includes('control'))
+      .map(p => p.value)
+      .filter(v => !isNaN(v));
+
+    const postControlData = funnel.post_series
+      .filter(p => p.cohort.includes('CONTROL') || p.cohort.includes('control'))
+      .map(p => p.value)
+      .filter(v => !isNaN(v));
+
+    const calculateStats = (data: number[]) => {
+      if (data.length === 0) {
+        return { mean: 0, median: 0, p25: 0, p75: 0, std: 0, count: 0 };
+      }
+
+      const sorted = [...data].sort((a, b) => a - b);
+      const mean = data.reduce((sum, val) => sum + val, 0) / data.length;
+      const median = sorted.length % 2 === 0
+        ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+        : sorted[Math.floor(sorted.length / 2)];
+
+      const p25Index = Math.floor(sorted.length * 0.25);
+      const p75Index = Math.floor(sorted.length * 0.75);
+      const p25 = sorted[p25Index];
+      const p75 = sorted[p75Index];
+
+      const variance = data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / data.length;
+      const std = Math.sqrt(variance);
+
+      return {
+        mean: mean,
+        median: median,
+        p25: p25,
+        p75: p75,
+        std: std,
+        count: data.length
+      };
+    };
+
+    const preTestStats = calculateStats(preTestData);
+    const postTestStats = calculateStats(postTestData);
+    const preControlStats = calculateStats(preControlData);
+    const postControlStats = calculateStats(postControlData);
+
+    return [
+      { group: 'Pre Test', ...preTestStats },
+      { group: 'Post Test', ...postTestStats },
+      { group: 'Pre Control', ...preControlStats },
+      { group: 'Post Control', ...postControlStats }
+    ];
+  };
+
+  // Toggle summary visibility for a metric
+  const toggleSummaryVisibility = (metric: string) => {
+    const newVisible = new Set(visibleSummaries);
+    if (newVisible.has(metric)) {
+      newVisible.delete(metric);
+    } else {
+      newVisible.add(metric);
+    }
+    setVisibleSummaries(newVisible);
   };
 
   async function loadFunnel() {
@@ -235,14 +312,24 @@ function App() {
             {Object.entries(funnels).map(([metric, funnel]) => {
               const testLabel = filters.test_cohort ? `TEST: ${filters.test_cohort}` : undefined;
               const controlLabel = filters.control_cohort ? `CONTROL: ${filters.control_cohort}` : undefined;
+              const summaryStats = calculateSummaryStats(funnel, metric);
+              const showSummary = visibleSummaries.has(metric);
+
               return (
                 <div key={metric} className="glass-card slide-in">
                   <div className="card-header">
                     <span className="card-icon">📊</span>
-                    <div>
+                    <div className="flex-1">
                       <h2 className="card-title">{metric.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} Over Time</h2>
                       <p className="card-subtitle">Comparison of test vs control cohorts across pre and post periods</p>
                     </div>
+                    <button
+                      onClick={() => toggleSummaryVisibility(metric)}
+                      className={`btn btn-secondary ${showSummary ? 'bg-indigo-600 text-white' : ''}`}
+                      title={showSummary ? 'Hide Summary Statistics' : 'Show Summary Statistics'}
+                    >
+                      📈 Stats
+                    </button>
                   </div>
                   <div className="chart-container">
                     <Charts
@@ -253,6 +340,16 @@ function App() {
                       legendSuffix={metric.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                     />
                   </div>
+
+                  {/* Summary Statistics Section */}
+                  {showSummary && (
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                      <SummaryStatsTable
+                        data={summaryStats}
+                        title={`${metric.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} Summary Statistics`}
+                      />
+                    </div>
+                  )}
 
                   {/* Statistical Analysis Section */}
                   <div className="mt-8 pt-6 border-t border-gray-200">

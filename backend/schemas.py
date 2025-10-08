@@ -120,6 +120,8 @@ class CohortAggregationRow(BaseModel):
     totalExpCaps: float
     visitedCaps: float
     clickedCaptain: float
+    pitch_centre_card_clicked: float
+    pitch_centre_card_visible: float
     exploredCaptains: float
     exploredCaptains_Subs: float
     exploredCaptains_EPKM: float
