@@ -257,3 +257,147 @@ export async function fetchCaptainLevelAggregation(req: CaptainLevelRequest): Pr
     }
     return await res.json();
 }
+
+// ============================================================================
+// FUNNEL ANALYSIS API
+// ============================================================================
+
+export type MobileNumberUploadResponse = {
+    funnel_session_id: string;
+    num_rows: number;
+    columns: string[];
+    has_cohort: boolean;
+    preview: Record<string, any>[];
+};
+
+export type CaptainIdRequest = {
+    username: string;
+};
+
+export type CaptainIdResponse = {
+    num_rows: number;
+    num_captains_found: number;
+    preview: Record<string, any>[];
+};
+
+export type AOFunnelRequest = {
+    username: string;
+    start_date?: string;
+    end_date?: string;
+    time_level?: 'daily' | 'weekly' | 'monthly';
+    tod_level?: 'daily' | 'afternoon' | 'evening' | 'morning' | 'night' | 'all';
+};
+
+export type AOFunnelResponse = {
+    num_rows: number;
+    columns: string[];
+    preview: Record<string, any>[];
+    metrics: string[];
+    unique_captain_ids: number;
+};
+
+function getFunnelSessionId(): string | null {
+    return localStorage.getItem('funnel_session_id');
+}
+
+function setFunnelSessionId(id: string) {
+    localStorage.setItem('funnel_session_id', id);
+}
+
+function funnelSessionHeaders(): Headers {
+    const h = new Headers();
+    const session = getFunnelSessionId();
+    if (session) h.set('x-funnel-session-id', session);
+    return h;
+}
+
+export async function uploadMobileNumbers(file: File): Promise<MobileNumberUploadResponse> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${BASE_URL}/funnel-analysis/upload-mobile-numbers`, {
+        method: 'POST',
+        body: form,
+    });
+    if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || 'Mobile numbers upload failed');
+    }
+    const data = (await res.json()) as MobileNumberUploadResponse;
+    setFunnelSessionId(data.funnel_session_id);
+    return data;
+}
+
+export async function getCaptainIds(username: string): Promise<CaptainIdResponse> {
+    const headers = funnelSessionHeaders();
+    headers.set('Content-Type', 'application/json');
+    const res = await fetch(`${BASE_URL}/funnel-analysis/get-captain-ids`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ username }),
+    });
+    if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || 'Failed to fetch captain IDs');
+    }
+    return await res.json();
+}
+
+export async function getAOFunnel(req: AOFunnelRequest): Promise<AOFunnelResponse> {
+    const headers = funnelSessionHeaders();
+    headers.set('Content-Type', 'application/json');
+    const res = await fetch(`${BASE_URL}/funnel-analysis/get-ao-funnel`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(req),
+    });
+    if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || 'Failed to fetch AO funnel data');
+    }
+    return await res.json();
+}
+
+export async function clearFunnelSession(): Promise<void> {
+    const res = await fetch(`${BASE_URL}/funnel-analysis/session`, {
+        method: 'DELETE',
+        headers: funnelSessionHeaders(),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    localStorage.removeItem('funnel_session_id');
+}
+
+export async function exportFunnelCsv(): Promise<void> {
+    const res = await fetch(`${BASE_URL}/funnel-analysis/export-csv`, {
+        method: 'GET',
+        headers: funnelSessionHeaders(),
+    });
+    if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || 'Failed to export CSV');
+    }
+
+    // Download the file
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'funnel_data.csv';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+
+export async function useFunnelForAnalysis(): Promise<UploadResponse> {
+    const res = await fetch(`${BASE_URL}/funnel-analysis/use-for-analysis`, {
+        method: 'POST',
+        headers: funnelSessionHeaders(),
+    });
+    if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || 'Failed to transfer funnel data to analysis session');
+    }
+    const data = (await res.json()) as UploadResponse;
+    setSessionId(data.session_id);
+    return data;
+}

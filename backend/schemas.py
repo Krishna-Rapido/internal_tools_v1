@@ -174,3 +174,38 @@ class CaptainLevelResponse(BaseModel):
     metrics: List[str]
 
 
+# Funnel Analysis Schemas
+class MobileNumberUploadResponse(BaseModel):
+    funnel_session_id: str
+    num_rows: int
+    columns: List[str]
+    has_cohort: bool
+    preview: List[Dict[str, Any]]  # First 5 rows
+
+
+class CaptainIdRequest(BaseModel):
+    username: str  # Presto username
+
+
+class CaptainIdResponse(BaseModel):
+    num_rows: int
+    num_captains_found: int
+    preview: List[Dict[str, Any]]  # First 5 rows
+
+
+class AOFunnelRequest(BaseModel):
+    username: str
+    start_date: str = "20250801"
+    end_date: str = "20251031"
+    time_level: Literal["daily", "weekly", "monthly"] = "daily"
+    tod_level: Literal["daily", "afternoon", "evening", "morning", "night", "all"] = "daily"
+
+
+class AOFunnelResponse(BaseModel):
+    num_rows: int
+    columns: List[str]
+    preview: List[Dict[str, Any]]  # First 10 rows
+    metrics: List[str]  # Available metric columns
+    unique_captain_ids: int  # Count of unique captain IDs in full dataset
+
+

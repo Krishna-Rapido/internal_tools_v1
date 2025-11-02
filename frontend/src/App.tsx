@@ -10,6 +10,7 @@ import { StatisticalTests } from './components/StatisticalTests';
 import { CohortDataGrid } from './components/CohortDataGrid';
 import { SummaryStatsTable } from './components/SummaryStatsTable';
 import { CaptainLevelCharts } from './components/CaptainLevelCharts';
+import { FunnelAnalysis } from './components/FunnelAnalysis';
 import { fetchFunnel, fetchCohortAggregation, fetchCaptainLevelAggregation } from './lib/api';
 import type { FunnelResponse, UploadResponse, CohortAggregationResponse, CaptainLevelResponse } from './lib/api';
 
@@ -240,6 +241,9 @@ function App() {
         <div className="title-bar">
           <h1 className="title-text">BYOB Ladoo Metrics</h1>
         </div>
+
+        {/* Funnel Analysis Section - Always visible */}
+        <FunnelAnalysis onDataReady={(res) => setUploaded(res)} />
 
         {/* Data Upload Card */}
         {!uploaded ? (
