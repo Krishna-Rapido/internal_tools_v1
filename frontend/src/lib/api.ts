@@ -268,6 +268,7 @@ export type MobileNumberUploadResponse = {
     columns: string[];
     has_cohort: boolean;
     preview: Record<string, any>[];
+    duplicates_removed?: number;
 };
 
 export type CaptainIdRequest = {

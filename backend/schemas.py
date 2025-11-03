@@ -181,6 +181,7 @@ class MobileNumberUploadResponse(BaseModel):
     columns: List[str]
     has_cohort: bool
     preview: List[Dict[str, Any]]  # First 5 rows
+    duplicates_removed: int = 0  # Number of duplicate rows removed
 
 
 class CaptainIdRequest(BaseModel):

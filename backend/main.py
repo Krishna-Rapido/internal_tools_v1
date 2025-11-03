@@ -583,6 +583,15 @@ async def upload_mobile_numbers(file: UploadFile = File(...)) -> MobileNumberUpl
     if has_cohort:
         df['cohort'] = df['cohort'].astype(str)
     
+    # Drop duplicates based on mobile_number (and cohort if present)
+    original_rows = len(df)
+    if has_cohort:
+        df = df.drop_duplicates(subset=['mobile_number', 'cohort'], keep='first')
+    else:
+        df = df.drop_duplicates(subset=['mobile_number'], keep='first')
+    
+    duplicates_removed = original_rows - len(df)
+    
     # Generate session ID and store
     funnel_session_id = secrets.token_hex(16)
     FUNNEL_SESSION_STORE[funnel_session_id] = df
@@ -592,10 +601,11 @@ async def upload_mobile_numbers(file: UploadFile = File(...)) -> MobileNumberUpl
     
     return MobileNumberUploadResponse(
         funnel_session_id=funnel_session_id,
-        num_rows=len(df.mobile_number.unique()),
+        num_rows=len(df),
         columns=list(df.columns),
         has_cohort=has_cohort,
-        preview=preview
+        preview=preview,
+        duplicates_removed=duplicates_removed
     )
 
 
