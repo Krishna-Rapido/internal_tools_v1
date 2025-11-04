@@ -402,3 +402,65 @@ export async function useFunnelForAnalysis(): Promise<UploadResponse> {
     setSessionId(data.session_id);
     return data;
 }
+
+export type DaprBucketRequest = {
+    username: string;
+    start_date?: string;
+    end_date?: string;
+    city?: string;
+    service_category?: string;
+    low_dapr?: number;
+    high_dapr?: number;
+};
+
+export type DaprBucketResponse = {
+    num_rows: number;
+    columns: string[];
+    data: Record<string, any>[];
+};
+
+export async function getDaprBucket(req: DaprBucketRequest): Promise<DaprBucketResponse> {
+    const headers = new Headers();
+    headers.set('Content-Type', 'application/json');
+    const res = await fetch(`${BASE_URL}/funnel-analysis/dapr-bucket`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(req),
+    });
+    if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || 'Failed to fetch DAPR bucket data');
+    }
+    return await res.json();
+}
+
+export type Fe2NetRequest = {
+    username: string;
+    start_date?: string;
+    end_date?: string;
+    city?: string;
+    service_category?: string;
+    geo_level?: string;
+    time_level?: string;
+};
+
+export type Fe2NetResponse = {
+    num_rows: number;
+    columns: string[];
+    data: Record<string, any>[];
+};
+
+export async function getFe2Net(req: Fe2NetRequest): Promise<Fe2NetResponse> {
+    const headers = new Headers();
+    headers.set('Content-Type', 'application/json');
+    const res = await fetch(`${BASE_URL}/captain-dashboards/fe2net`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(req),
+    });
+    if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || 'Failed to fetch FE2Net data');
+    }
+    return await res.json();
+}

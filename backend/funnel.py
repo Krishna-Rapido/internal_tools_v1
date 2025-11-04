@@ -182,3 +182,196 @@ def get_ao_funnel(captain_id_df: pd.DataFrame, username: str, start_date: str = 
     captain_id_df['captain_id'] = captain_id_df['captain_id'].astype(str)
     df['captain_id'] = df['captain_id'].astype(str)
     return captain_id_df.merge(df, on='captain_id', how='inner')
+
+
+def dapr_bucket(username: str, start_date: str, end_date: str, city: str, service_category: str, low_dapr: float, high_dapr: float):
+    """
+    Fetch DAPR bucket distribution data from Presto
+    
+    Args:
+        username: Presto username for connection
+        start_date: Start date in YYYYMMDD format
+        end_date: End date in YYYYMMDD format
+        city: City name (e.g., 'delhi', 'bangalore')
+        service_category: Service category
+        low_dapr: Low DAPR threshold
+        high_dapr: High DAPR threshold
+    
+    Returns:
+        DataFrame with DAPR bucket distribution
+    """
+    presto_connection = get_presto_connection(username)
+    query = f"""
+    with mapping as (SELECT 
+       service_category,
+       service_level
+FROM datasets.service_level_mapping_qc   
+where service_category = '{service_category}'
+group by 1,2) , 
+
+city as (SELECT 
+       city_display_name  
+FROM datasets.service_level_mapping_qc   
+where lower(city_display_name) = lower('{city}')
+group by 1) , 
+
+
+dapr as ( 
+SELECT 
+    yyyymmdd, 
+    captain_id, 
+    city_name, 
+    CASE 
+        WHEN accepted_pings < 20 THEN 'less_than_20_pings'
+        WHEN dapr <= {low_dapr} AND accepted_pings >= 20 THEN 'BAD'
+        WHEN dapr >= {high_dapr} AND accepted_pings >= 20 THEN 'GOOD' 
+        WHEN dapr > {low_dapr} AND dapr < {high_dapr} AND accepted_pings >= 20 THEN 'AVG' 
+    END AS Dapr_bucket
+FROM reports_internal.marketplace_dapr_twenty_pings_combined_v7_v8
+WHERE yyyymmdd >= '{start_date}'
+and yyyymmdd <= '{end_date}'
+AND service_category IN (SELECT service_category FROM mapping)
+AND city_name IN (SELECT city_display_name FROM city)),
+    
+
+    
+active as (select *
+from
+(select captainid ,a.yyyymmdd , Dapr_bucket ,
+sum(net_orders) as dropped_rides_day, sum(accepted_pings) as accp_pings_day,
+sum(accepted_pings + riderrejected_pings + riderbusy_pings) as pings_rec_day,
+sum(accepted_pings)-sum(net_orders) as cancelled_day
+from datasets.captain_svo_daily_kpi a
+left join dapr b on a.captainid=b.captain_id and a.city=b.city_name and a.yyyymmdd=b.yyyymmdd
+
+where a.yyyymmdd >= '{start_date}'
+and a.yyyymmdd <= '{end_date}'
+
+    and service_name in (select  service_level from mapping )
+    and city in (select city_display_name  from city )
+    and Dapr_bucket is not null
+group by 1,2,3
+having  sum(accepted_pings + riderrejected_pings + riderbusy_pings)>0))
+
+select yyyymmdd  ,Dapr_bucket , active_caps , dropped , total_pings ,  cancelled , 
+active_caps/cast(active_caps_total as real ) as per_caps ,
+total_pings/cast(pings_total as real ) as per_total_pings ,
+accepted/cast(accepted_total as real ) as per_accp ,
+dropped/cast(dropped_total as real ) as per_dropped ,
+cancelled/cast(cancelled_total as real ) as per_cancel,
+100*dropped/cast(accepted as real ) as avg_dapr
+from
+(select a.yyyymmdd  ,case when Dapr_bucket is null then 'less_than_20_pings' else Dapr_bucket end as Dapr_bucket, 
+active_caps_total,dropped_total , accepted_total , pings_total , cancelled_total , 
+count(captainid) as active_caps , 
+sum(dropped_rides_day) as dropped,
+sum(accp_pings_day) as accepted,
+sum(pings_rec_day) as total_pings , 
+sum(cancelled_day) as cancelled
+from active a
+inner join (select yyyymmdd , 
+count(captainid) active_caps_total, 
+sum(dropped_rides_day) as dropped_total,
+sum(accp_pings_day) as accepted_total,
+sum(pings_rec_day) as pings_total , 
+sum(cancelled_day) as cancelled_total
+from active
+where Dapr_bucket is not null
+group by 1
+) b on a.yyyymmdd = b.yyyymmdd
+group by 1,2,3,4,5,6,7
+)
+order by  yyyymmdd , Dapr_bucket
+
+    """
+    df = pd.read_sql_query(query, presto_connection)
+    return df
+
+
+def fe2net(username: str, start_date: str, end_date: str, city: str, service_category: str, geo_level: str, time_level: str):
+    """
+    Fetch FE2Net funnel data from Presto
+    
+    Args:
+        username: Presto username for connection
+        start_date: Start date in YYYYMMDD format
+        end_date: End date in YYYYMMDD format
+        city: City name (e.g., 'delhi', 'bangalore')
+        service_category: Service category
+        geo_level: Geographic level (e.g., 'city', 'zone')
+        time_level: Time aggregation level (e.g., 'daily', 'weekly')
+    
+    Returns:
+        DataFrame with FE2Net funnel metrics
+    """
+    presto_connection = get_presto_connection(username)
+    
+    query = f"""
+    select
+    city as "City", 
+    time_level as "Time Level", 
+    time_value as "Time Value",
+    geo_level as "Geo Level",
+    geo_value as "Geo Value",
+    service as Service,
+    login_hours,
+    fe_sessions,
+    gross_session,
+    fe2rr,
+    fe2net,
+    gsr2net,
+    gross_orders,
+    mapped_orders,
+    net_orders,
+    g2n_req_percent,
+    g2n_mapped_percent,
+    stress_gsr_login_hours,
+    accepted_orders_out_of_mapped as AOR,
+    accepted_orders_out_of_gross_percent,
+    total_pings,
+    net_order_per_login_hour,
+    unmapped_orders_percent,
+    stockout_percent,
+    cobrm_percent,
+    expiry_mapped_percent,
+    cobra_percent,
+    ocara_percent,
+    avg_mr as avg_mapped_riders_count,
+    median_mr as median_mapped_riders_count,
+    online_captains,
+    gross_captains,
+    net_captains,
+    idle_hours,
+    time_spent_earning_percent,
+    login_hours_per_online_captain,
+    rph,
+    rides_per_net_rider,
+    apr,
+    rider_busy_percent,
+    rider_reject_percent,
+    dpr,
+    dapr,
+    matching_efficiency_pings_per_net_order,
+    avg_fm_accepted_orders_kms,
+    median_fm_accepted_orders_kms,
+    avg_fm_dropped_orders_kms,
+    median_fm_dropped_orders_kms,
+    avg_fm_ocara_orders_kms,
+    median_fm_ocara_orders_kms,
+    avg_shown_eta,
+    avg_actual_eta,
+    avg_tta_secs
+from experiments.fe2net_dashboard_lite
+where
+ substr(replace(time_value,'-',''),1,10) >= '{start_date}' 
+and substr(replace(time_value,'-',''),1,10) <= '{end_date}'
+    and service = '{service_category}'
+    and geo_level = '{geo_level}'
+    and lower(city) = lower('{city}')
+    and time_level = '{time_level}'
+    -- [[and {{geo_value}}]]
+    and geo_value != ''
+order by 3 asc
+    """
+    df = pd.read_sql_query(query, presto_connection)
+    return df

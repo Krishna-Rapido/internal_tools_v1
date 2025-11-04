@@ -210,3 +210,35 @@ class AOFunnelResponse(BaseModel):
     unique_captain_ids: int  # Count of unique captain IDs in full dataset
 
 
+class DaprBucketRequest(BaseModel):
+    username: str
+    start_date: str = "20250801"
+    end_date: str = "20251031"
+    city: str = "delhi"
+    service_category: str = "bike_taxi"
+    low_dapr: float = 0.6
+    high_dapr: float = 0.8
+
+
+class DaprBucketResponse(BaseModel):
+    num_rows: int
+    columns: List[str]
+    data: List[Dict[str, Any]]  # Full result set
+
+
+class Fe2NetRequest(BaseModel):
+    username: str
+    start_date: str = "20250801"
+    end_date: str = "20251031"
+    city: str = "delhi"
+    service_category: str = "bike_taxi"
+    geo_level: str = "city"
+    time_level: str = "daily"
+
+
+class Fe2NetResponse(BaseModel):
+    num_rows: int
+    columns: List[str]
+    data: List[Dict[str, Any]]  # Full result set
+
+

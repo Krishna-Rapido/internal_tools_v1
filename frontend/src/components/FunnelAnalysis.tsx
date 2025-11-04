@@ -29,6 +29,7 @@ export function FunnelAnalysis({ onDataReady }: FunnelAnalysisProps) {
     const [captainIdData, setCaptainIdData] = useState<CaptainIdResponse | null>(null);
     const [funnelData, setFunnelData] = useState<AOFunnelResponse | null>(null);
 
+
     // Form inputs
     const [username, setUsername] = useState('krishna.poddar@rapido.bike');
     const [startDate, setStartDate] = useState('20250801');

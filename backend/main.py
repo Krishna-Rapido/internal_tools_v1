@@ -31,6 +31,10 @@ from schemas import (
     CaptainIdResponse,
     AOFunnelRequest,
     AOFunnelResponse,
+    DaprBucketRequest,
+    DaprBucketResponse,
+    Fe2NetRequest,
+    Fe2NetResponse,
 )
 from transformations import (
     aggregate_time_series,
@@ -789,6 +793,64 @@ def export_funnel_csv(x_funnel_session_id: Optional[str] = Header(default=None))
         iter([csv_buffer.getvalue()]),
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=funnel_data.csv"}
+    )
+
+
+@app.post("/funnel-analysis/dapr-bucket", response_model=DaprBucketResponse, responses={400: {"model": ErrorResponse}})
+async def get_dapr_bucket(payload: DaprBucketRequest) -> DaprBucketResponse:
+    """
+    Fetch DAPR bucket distribution data from Presto
+    """
+    try:
+        from funnel import dapr_bucket
+        result_df = dapr_bucket(
+            payload.username,
+            payload.start_date,
+            payload.end_date,
+            payload.city,
+            payload.service_category,
+            payload.low_dapr,
+            payload.high_dapr
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch DAPR bucket data: {exc}")
+    
+    # Convert all data to records
+    data = result_df.to_dict('records')
+    
+    return DaprBucketResponse(
+        num_rows=len(result_df),
+        columns=list(result_df.columns),
+        data=data
+    )
+
+
+@app.post("/captain-dashboards/fe2net", response_model=Fe2NetResponse, responses={400: {"model": ErrorResponse}})
+async def get_fe2net(payload: Fe2NetRequest) -> Fe2NetResponse:
+    """
+    Fetch FE2Net funnel data from Presto
+    """
+    try:
+        from funnel import fe2net
+        result_df = fe2net(
+            payload.username,
+            payload.start_date,
+            payload.end_date,
+            payload.city,
+            payload.service_category,
+            payload.geo_level,
+            payload.time_level
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch FE2Net data: {exc}")
+    
+    # Convert all data to records
+    data = result_df.to_dict('records')
+    
+    return Fe2NetResponse(
+        num_rows=len(result_df),
+        columns=list(result_df.columns),
+        data=data
     )
 
 
