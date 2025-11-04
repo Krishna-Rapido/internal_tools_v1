@@ -1,4 +1,4 @@
-# Internal Tools V1 - Captain Analytics Platform
+# Ladoo Metrics - Captain Analytics Platform
 
 A comprehensive analytics platform for Rapido captain data analysis, featuring cohort analysis, funnel metrics, statistical tests, and specialized captain dashboards.
 
