@@ -37,6 +37,12 @@ from schemas import (
     Fe2NetResponse,
     RtuPerformanceRequest,
     RtuPerformanceResponse,
+    R2ARequest,
+    R2AResponse,
+    R2APercentageRequest,
+    R2APercentageResponse,
+    A2PhhSummaryRequest,
+    A2PhhSummaryResponse,
 )
 from transformations import (
     aggregate_time_series,
@@ -881,6 +887,90 @@ async def get_rtu_performance(payload: RtuPerformanceRequest) -> RtuPerformanceR
     data = result_df.to_dict('records')
     
     return RtuPerformanceResponse(
+        num_rows=len(result_df),
+        columns=list(result_df.columns),
+        data=data
+    )
+
+
+@app.post("/captain-dashboards/r2a", response_model=R2AResponse, responses={400: {"model": ErrorResponse}})
+async def get_r2a(payload: R2ARequest) -> R2AResponse:
+    """
+    Fetch R2A% (Registration to Activation) metrics from Presto
+    """
+    try:
+        from funnel import r2a_registration_by_activation
+        result_df = r2a_registration_by_activation(
+            payload.username,
+            payload.start_date,
+            payload.end_date,
+            payload.city,
+            payload.service,
+            payload.time_level
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch R2A data: {exc}")
+    
+    # Convert all data to records
+    data = result_df.to_dict('records')
+    
+    return R2AResponse(
+        num_rows=len(result_df),
+        columns=list(result_df.columns),
+        data=data
+    )
+
+
+@app.post("/captain-dashboards/r2a-percentage", response_model=R2APercentageResponse, responses={400: {"model": ErrorResponse}})
+async def get_r2a_percentage(payload: R2APercentageRequest) -> R2APercentageResponse:
+    """
+    Fetch R2A% metrics from Presto
+    """
+    try:
+        from funnel import r2a_pecentage
+        result_df = r2a_pecentage(
+            payload.username,
+            payload.start_date,
+            payload.end_date,
+            payload.city,
+            payload.service,
+            payload.time_level
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch R2A% data: {exc}")
+    
+    # Convert all data to records
+    data = result_df.to_dict('records')
+    
+    return R2APercentageResponse(
+        num_rows=len(result_df),
+        columns=list(result_df.columns),
+        data=data
+    )
+
+
+@app.post("/captain-dashboards/a2phh-summary", response_model=A2PhhSummaryResponse, responses={400: {"model": ErrorResponse}})
+async def get_a2phh_summary(payload: A2PhhSummaryRequest) -> A2PhhSummaryResponse:
+    """
+    Fetch A2PHH Summary M0 metrics from Presto
+    """
+    try:
+        from funnel import a2phh_summary
+        result_df = a2phh_summary(
+            payload.username,
+            payload.start_date,
+            payload.end_date,
+            payload.city,
+            payload.service,
+            payload.time_level
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch A2PHH Summary data: {exc}")
+    
+    # Convert all data to records
+    data = result_df.to_dict('records')
+    
+    return A2PhhSummaryResponse(
         num_rows=len(result_df),
         columns=list(result_df.columns),
         data=data

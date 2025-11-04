@@ -497,3 +497,93 @@ export async function getRtuPerformance(req: RtuPerformanceRequest): Promise<Rtu
     }
     return await res.json();
 }
+
+export type R2ARequest = {
+    username: string;
+    start_date?: string;
+    end_date?: string;
+    city?: string;
+    service?: string;
+    time_level?: string;
+};
+
+export type R2AResponse = {
+    num_rows: number;
+    columns: string[];
+    data: Record<string, any>[];
+};
+
+export async function getR2A(req: R2ARequest): Promise<R2AResponse> {
+    const headers = new Headers();
+    headers.set('Content-Type', 'application/json');
+    const res = await fetch(`${BASE_URL}/captain-dashboards/r2a`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(req),
+    });
+    if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || 'Failed to fetch R2A data');
+    }
+    return await res.json();
+}
+
+export type R2APercentageRequest = {
+    username: string;
+    start_date?: string;
+    end_date?: string;
+    city?: string;
+    service?: string;
+    time_level?: string;
+};
+
+export type R2APercentageResponse = {
+    num_rows: number;
+    columns: string[];
+    data: Record<string, any>[];
+};
+
+export async function getR2APercentage(req: R2APercentageRequest): Promise<R2APercentageResponse> {
+    const headers = new Headers();
+    headers.set('Content-Type', 'application/json');
+    const res = await fetch(`${BASE_URL}/captain-dashboards/r2a-percentage`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(req),
+    });
+    if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || 'Failed to fetch R2A% data');
+    }
+    return await res.json();
+}
+
+export type A2PhhSummaryRequest = {
+    username: string;
+    start_date?: string;
+    end_date?: string;
+    city?: string;
+    service?: string;
+    time_level?: string;
+};
+
+export type A2PhhSummaryResponse = {
+    num_rows: number;
+    columns: string[];
+    data: Record<string, any>[];
+};
+
+export async function getA2PhhSummary(req: A2PhhSummaryRequest): Promise<A2PhhSummaryResponse> {
+    const headers = new Headers();
+    headers.set('Content-Type', 'application/json');
+    const res = await fetch(`${BASE_URL}/captain-dashboards/a2phh-summary`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(req),
+    });
+    if (!res.ok) {
+        const error = await res.text();
+        throw new Error(error || 'Failed to fetch A2PHH Summary data');
+    }
+    return await res.json();
+}

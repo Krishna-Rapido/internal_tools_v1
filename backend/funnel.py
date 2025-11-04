@@ -653,3 +653,551 @@ order by time, groupedValue
     """
     df = pd.read_sql(query, presto_connection)
     return df
+
+
+def r2a_registration_by_activation(username: str, start_date: str, end_date: str, city: str, service: str, time_level: str):
+    """
+    Fetch R2A% (Registration to Activation) metrics from Presto
+    
+    Args:
+        username: Presto username for connection
+        start_date: Start date in YYYYMMDD format
+        end_date: End date in YYYYMMDD format
+        city: City name (e.g., 'hyderabad', 'bangalore')
+        service: Service type (e.g., 'auto', 'bike')
+        time_level: Time aggregation level ('day', 'week', 'month')
+    
+    Returns:
+        DataFrame with R2A metrics
+    """
+    presto_connection = get_presto_connection(username)
+    query = f"""
+    with base_reg as (
+  select 
+    date_trunc(
+      lower('{time_level}'), 
+      cast(registration_date as date)
+    ) as time_level, 
+    count(distinct captain_id) as registrations 
+  from 
+    (
+      select 
+        captain_id, 
+        registration_date, 
+        mobile_number, 
+        activation_date, 
+        first_ridedate, 
+        source, 
+        registration_city, 
+        case when profile_picture_uploaded is not null then 1 else 0 end as profile_picture_uploaded, 
+        case when license_uploaded is not null then 1 else 0 end as license_uploaded, 
+        case when rc_uploaded is not null then 1 else 0 end as rc_uploaded, 
+        case when pancard_uploaded is not null 
+        or aadhar_uploaded is not null then 1 else 0 end as "Pan | Aadhar Uplpoaded", 
+       CASE
+            WHEN mode_id = '642ae204b4b6b8ec5665ce87' THEN 'cab'
+            WHEN mode_id = '5fbe8a8a9788ac0008c4eb98' THEN 'auto'
+            WHEN mode_id = '5fbe8a6fb1c45500077393da' THEN 'link' end as final_service 
+      from 
+        datasets.captain_supply_journey_summary 
+      where 
+         substr(replace(registration_date, '-', ''),1,10) >= '{start_date}'
+        and substr(replace(registration_date, '-', ''),1,10) <= '{end_date}'
+        and lower(registration_city) = lower('{city}')
+    )
+  where 1=1
+    --final_service != 'cab' 
+    and lower(final_service) = lower('{service}')
+  group by 
+    1
+), 
+base_act as (
+  select 
+    date_trunc(
+      lower('{time_level}'), 
+      cast(activation_date as date)
+    ) as time_level, 
+    count( distinct captain_id) as overall_activations, 
+    count(
+     distinct case when date_trunc(
+        '{time_level}', 
+        cast(registration_date as date)
+      ) = date_trunc(
+        '{time_level}', 
+        cast(activation_date as date)
+      ) then captain_id end
+    ) as M0Activations, 
+    count(
+    distinct  case when date_trunc(
+        '{time_level}', 
+        cast(registration_date as date)
+      ) != date_trunc(
+        '{time_level}', 
+        cast(activation_date as date)
+      ) then captain_id end
+    ) as MrestActivations
+from 
+  (
+    select 
+      captain_id, 
+      registration_date, 
+      mobile_number, 
+      activation_date, 
+      first_ridedate, 
+      source, 
+      registration_city, 
+      case when profile_picture_uploaded is not null then 1 else 0 end as profile_picture_uploaded, 
+      case when license_uploaded is not null then 1 else 0 end as license_uploaded, 
+      case when rc_uploaded is not null then 1 else 0 end as rc_uploaded, 
+      case when pancard_uploaded is not null 
+      or aadhar_uploaded is not null then 1 else 0 end as "Pan | Aadhar Uplpoaded", 
+      coalesce(case 
+      when lower(servicename) like '%auto%' then 'auto'
+        when lower(servicename) like '%rick%' then 'auto'
+        when lower(servicename) like '%cab%' then 'cab'
+        when lower(servicename) like '%link%' then 'link' end,
+         case 
+        when lower(services_interested) like '%auto%' then 'auto'
+        when lower(services_interested) like '%cab%' then 'cab'
+        else 'link' end) as final_service 
+    from 
+      datasets.captain_supply_journey_summary
+    where 
+      substr(replace(activation_date, '-', ''),1,10) >= '{start_date}'
+      and substr(replace(activation_date, '-', ''),1,10) <= '{end_date}'
+      and lower(registration_city) = lower('{city}')
+  ) 
+where 1=1
+  --final_service != 'cab'
+  and lower(final_service) = lower('{service}')  
+group by 
+  1
+), 
+base_fr as (
+  select 
+    date_trunc(
+      lower('{time_level}'), 
+      cast(first_ridedate as date)
+    ) as time_level, 
+    count(distinct captain_id) as overall_fr 
+  from 
+    (
+      select 
+        captain_id, 
+        registration_date, 
+        mobile_number, 
+        activation_date, 
+        first_ridedate, 
+        source, 
+        registration_city, 
+        case when profile_picture_uploaded is not null then 1 else 0 end as profile_picture_uploaded, 
+        case when license_uploaded is not null then 1 else 0 end as license_uploaded, 
+        case when rc_uploaded is not null then 1 else 0 end as rc_uploaded, 
+        case when pancard_uploaded is not null 
+        or aadhar_uploaded is not null then 1 else 0 end as "Pan | Aadhar Uplpoaded", 
+       coalesce(case 
+        when lower(servicename) like '%auto%' then 'auto'
+        when lower(servicename) like '%rick%' then 'auto'
+        when lower(servicename) like '%cab%' then 'cab'
+        when lower(servicename) like '%link%' then 'link' end,
+         case 
+        when lower(services_interested) like '%auto%' then 'auto'
+        when lower(services_interested) like '%cab%' then 'cab'
+        else 'link' end) as final_service
+      from 
+        datasets.captain_supply_journey_summary ing 
+      where 
+        cast(first_ridedate as varchar) >= '{start_date}' 
+        and cast(first_ridedate as varchar) <= '{end_date}' 
+        and lower(registration_city) = lower('{city}')
+    ) 
+  where 1=1
+    --final_service != 'cab' 
+    and lower(final_service) = lower('{service}')   
+  group by 
+    1
+), 
+calls as (
+  select 
+    date_trunc(
+      lower('{time_level}'), 
+      date_parse(yyyymmdd, '%Y%m%d')
+    ) as time_level, 
+    count(dialed_number) as sk_calls 
+  FROM 
+    canonical.galaxy_supply_cdr_immutable 
+  where 
+    yyyymmdd >= '{start_date}'
+    and yyyymmdd <= '{end_date}'
+    and campaign in (
+      'SKILLOUTBOUND', 'SKILLCALLBACK', 
+      'AUTO', 'AUTOCALLBACK'
+    ) 
+    and dialer_disposition = 'Answered By Agent' 
+  group by 
+    1
+) 
+select 
+  base_reg.time_level, 
+  registrations, 
+  M0Activations, 
+  MrestActivations, 
+  overall_activations, 
+  M0Activations * 100.00 / registrations as R2A_M0, 
+  MrestActivations * 100.00 / registrations R2A_Mrest, 
+  overall_activations * 100.00 / registrations as overall_R2A, 
+  sk_calls * 1.00 / overall_activations as calls_per_act, 
+  overall_fr as overall_net_caps, 
+  overall_fr * 100.00 / M0Activations as "net_caps/M0Activations" 
+from 
+  base_reg 
+  left join base_act on base_reg.time_level = base_act.time_level 
+  left join base_fr on base_reg.time_level = base_fr.time_level 
+  left join calls on base_reg.time_level = calls.time_level 
+order by 
+    1"""
+    df = pd.read_sql(query, presto_connection)
+    return df
+
+
+
+def r2a_pecentage(username: str, start_date: str, end_date: str, city: str, service: str, time_level: str):
+    """
+    Fetch R2A% metrics from Presto
+    
+    Args:
+        username: Presto username for connection
+        start_date: Start date in YYYYMMDD format
+        end_date: End date in YYYYMMDD format
+        city: City name (e.g., 'hyderabad', 'bangalore')
+        service: Service type (e.g., 'auto', 'bike')
+        time_level: Time aggregation level ('day', 'week', 'month')
+    
+    Returns:
+        DataFrame with R2A% metrics
+    """
+    presto_connection = get_presto_connection(username)
+    query = f"""
+    with base_reg as (
+  select 
+    date_trunc(
+      lower('{time_level}'), 
+      cast(registration_date as date)
+    ) as time_level, 
+    count(distinct captain_id) as registrations 
+  from 
+    (
+      select 
+        captain_id, 
+        registration_date, 
+        mobile_number, 
+        activation_date, 
+        first_ridedate, 
+        source, 
+        registration_city, 
+        case when profile_picture_uploaded is not null then 1 else 0 end as profile_picture_uploaded, 
+        case when license_uploaded is not null then 1 else 0 end as license_uploaded, 
+        case when rc_uploaded is not null then 1 else 0 end as rc_uploaded, 
+        case when pancard_uploaded is not null 
+        or aadhar_uploaded is not null then 1 else 0 end as "Pan | Aadhar Uplpoaded", 
+    CASE
+            WHEN mode_id = '642ae204b4b6b8ec5665ce87' THEN 'cab'
+            WHEN mode_id = '5fbe8a8a9788ac0008c4eb98' THEN 'auto'
+            WHEN mode_id = '5fbe8a6fb1c45500077393da' THEN 'link' end as final_service 
+      from 
+        datasets.captain_supply_journey_summary 
+      where 
+        substr(replace(registration_date,'-',''),1,10) >= '{start_date}'
+        and registration_date <= '{end_date}'
+        and servicename<>'E rickshaw'
+        and lower(registration_city) = lower('{city}')
+    )
+  where 1=1
+    --final_service != 'cab' 
+    and lower(final_service) = lower('{service}')  
+  group by 
+    1
+), 
+base_act as (
+  select 
+    date_trunc(
+      lower('{time_level}'), 
+      cast(activation_date as date)
+    ) as time_level, 
+    count(distinct captain_id) as overall_activations, 
+    count(
+    distinct  case when date_trunc(
+        lower('{time_level}'), 
+        cast(registration_date as date)
+      ) = date_trunc(
+        lower('{time_level}'), 
+        cast(activation_date as date)
+      ) then captain_id end
+    ) as M0Activations, 
+    count(
+    distinct  case when date_trunc(
+        lower('{time_level}'), 
+        cast(registration_date as date)
+      ) != date_trunc(
+        lower('{time_level}'), 
+        cast(activation_date as date)
+      ) then captain_id end
+    ) as MrestActivations
+from 
+  (
+    select 
+      captain_id, 
+      registration_date, 
+      mobile_number, 
+      activation_date, 
+      first_ridedate, 
+      source, 
+      registration_city, 
+      case when profile_picture_uploaded is not null then 1 else 0 end as profile_picture_uploaded, 
+      case when license_uploaded is not null then 1 else 0 end as license_uploaded, 
+      case when rc_uploaded is not null then 1 else 0 end as rc_uploaded, 
+      case when pancard_uploaded is not null 
+      or aadhar_uploaded is not null then 1 else 0 end as "Pan | Aadhar Uplpoaded", 
+      coalesce(case 
+        when lower(servicename) like '%auto%' then 'auto'
+        when lower(servicename) like '%rick%' then 'auto'
+        when lower(servicename) like '%cab%' then 'cab'
+        when lower(servicename) like '%link%' then 'link' end,
+         case 
+        when lower(services_interested) like '%auto%' then 'auto'
+        when lower(services_interested) like '%cab%' then 'cab'
+        else 'link' end) as final_service 
+    from 
+      datasets.captain_supply_journey_summary
+    where 
+      substr(replace(activation_date,'-',''),1,10) >= '{start_date}'
+      and substr(replace(activation_date,'-',''),1,10) <= '{end_date}'
+      and lower(registration_city) = lower('{city}')
+  ) 
+where 1=1
+  --final_service != 'cab'
+  and lower(final_service) = lower('{service}')
+group by 
+  1
+), 
+base_fr as (
+  select 
+    date_trunc(
+      lower('{time_level}'), 
+      cast(first_ridedate as date)
+    ) as time_level, 
+    count(distinct captain_id) as overall_fr 
+  from 
+    (
+      select 
+        captain_id, 
+        registration_date, 
+        mobile_number, 
+        activation_date, 
+        first_ridedate, 
+        source, 
+        registration_city, 
+        case when profile_picture_uploaded is not null then 1 else 0 end as profile_picture_uploaded, 
+        case when license_uploaded is not null then 1 else 0 end as license_uploaded, 
+        case when rc_uploaded is not null then 1 else 0 end as rc_uploaded, 
+        case when pancard_uploaded is not null 
+        or aadhar_uploaded is not null then 1 else 0 end as "Pan | Aadhar Uplpoaded", 
+        coalesce(case 
+        when lower(servicename) like '%auto%' then 'auto'
+        when lower(servicename) like '%rick%' then 'auto'
+        when lower(servicename) like '%cab%' then 'cab'
+        when lower(servicename) like '%link%' then 'link' end,
+         case 
+        when lower(services_interested) like '%auto%' then 'auto'
+        when lower(services_interested) like '%cab%' then 'cab'
+        else 'link' end) as final_service
+      from 
+        datasets.captain_supply_journey_summary ing 
+      where 
+        cast(first_ridedate as varchar) >= '{start_date}' 
+        and cast(first_ridedate as varchar) <= '{end_date}' 
+        and lower(registration_city) = lower('{city}')
+    ) 
+  where 1=1
+    --final_service != 'cab' 
+    and lower(final_service) = lower('{service}')
+  group by 
+    1
+), 
+calls as (
+  select 
+    date_trunc(
+      lower('{time_level}'), 
+      date_parse(yyyymmdd, '%Y%m%d')
+    ) as time_level, 
+    count(dialed_number) as sk_calls 
+  FROM 
+    canonical.galaxy_supply_cdr_immutable 
+  where 
+    yyyymmdd >= '{start_date}'
+    and yyyymmdd <= '{end_date}'
+    and campaign in (
+      'SKILLOUTBOUND', 'SKILLCALLBACK', 
+      'AUTO', 'AUTOCALLBACK'
+    ) 
+    and dialer_disposition = 'Answered By Agent' 
+  group by 
+    1
+) 
+    
+select  base_reg.time_level,registrations,M0Activations,MrestActivations,overall_activations,
+M0Activations*100.00/registrations as R2A_M0,
+MrestActivations*100.00/registrations R2A_Mrest,
+overall_activations*100.00/registrations as overall_R2A,
+sk_calls*1.00/overall_activations as calls_per_act,
+overall_fr as overall_net_caps,
+overall_fr*100.00/M0Activations as "net_caps/M0Activations"
+
+from base_reg
+left join base_act on base_reg.time_level = base_act.time_level
+ left join base_fr on base_reg.time_level = base_fr.time_level
+left join calls on base_reg.time_level = calls.time_level
+order by 1
+
+
+    """
+    df = pd.read_sql(query, presto_connection)
+    return df
+
+
+def a2phh_summary(username: str, start_date: str, end_date: str, city: str, service: str, time_level: str):
+    """
+    Fetch A2PHH Summary M0 metrics from Presto
+    
+    Args:
+        username: Presto username for connection
+        start_date: Start date in YYYYMMDD format
+        end_date: End date in YYYYMMDD format
+        city: City name (e.g., 'bangalore', 'hyderabad')
+        service: Service type (e.g., 'auto', 'bike', 'cab')
+        time_level: Time aggregation level ('day', 'week', 'month')
+    
+    Returns:
+        DataFrame with A2PHH Summary M0 metrics
+    """
+    presto_connection = get_presto_connection(username)
+    query = f"""
+    WITH act AS (
+select * from (
+    SELECT 
+        DISTINCT captain_id,
+        registration_city,
+        mobile_number,
+        activation_date,
+        activation_time,
+        date_trunc(lower('{time_level}'), cast(activation_date as date)) AS activation_bucket,
+        CASE 
+            WHEN lower(registration_city) IN ('jaipur', 'delhi', 'hyderabad', 'kolkata', 'bangalore', 'mumbai', 'chennai', 'pune') THEN registration_city
+            WHEN lower(registration_city) IN ('ahmedabad', 'vijayawada', 'lucknow', 'indore', 'chandigarh', 'coimbatore', 'bhubaneswar', 'patna', 'ludhiana', 'vishakapatnam', 'guwahati', 'bhopal') THEN 'T2'
+            ELSE 'T3'
+        END AS tier,
+        CASE
+            WHEN mode_id = '642ae204b4b6b8ec5665ce87' THEN 'cab'
+            WHEN mode_id = '5fbe8a8a9788ac0008c4eb98' THEN 'auto'
+            WHEN mode_id = '5fbe8a6fb1c45500077393da' THEN 'link'
+        END AS final_service
+    FROM hive.datasets.captain_supply_journey_summary
+    WHERE substr(replace(activation_date,'-',''),1,10) >='{start_date}'
+    and substr(replace(activation_date,'-',''),1,10) <='{end_date}'
+    
+    and lower(registration_city) = lower('{city}')
+)where final_service='{service}'),
+
+ping AS (
+    SELECT 
+        captainid AS captain_id,
+        yyyymmdd,
+        date_trunc(lower('{time_level}'), parse_datetime(yyyymmdd, 'yyyyMMdd')) AS event_bucket,
+        CASE 
+            WHEN LOWER(ordertype) LIKE '%auto%' THEN 'auto'
+            WHEN LOWER(ordertype) LIKE '%rick%' THEN 'auto'
+            WHEN LOWER(ordertype) LIKE '%app%' THEN 'link'
+            WHEN LOWER(ordertype) LIKE '%cab%' THEN 'cab'
+            WHEN LOWER(ordertype) LIKE '%suv%' THEN 'cab'
+            WHEN LOWER(ordertype) LIKE '%delivery%' THEN 'link'
+        END AS service,
+        net_orders,
+        order_earning,
+        accepted_pings,
+        riderbusy_pings AS rider_busy_pings, 
+        riderrejected_pings AS rider_reject_pings,
+        ocara_rider_cancelled AS rider_cancelled_pings, 
+        ocara_customer_cancelled AS customer_cancelled_pings,
+        (accepted_pings + riderbusy_pings + riderrejected_pings) AS total_pings,
+        total_login_hr AS login_hrs,
+        idle_hours
+    FROM datasets.captain_svo_daily_kpi 
+    WHERE yyyymmdd >= '{start_date}'
+     AND yyyymmdd <= '{end_date}'
+    AND captainid IN (SELECT DISTINCT captain_id FROM act)
+    and lower(city) = lower('{city}') 
+),
+
+ping_m0 AS (
+    SELECT 
+        p.captain_id,
+        p.service,
+        SUM(p.net_orders) AS net_orders,
+        SUM(p.order_earning) AS order_earning,
+        SUM(p.accepted_pings) AS accepted_pings,
+        SUM(p.rider_busy_pings) AS rider_busy_pings, 
+        SUM(p.rider_reject_pings) AS rider_reject_pings,
+        SUM(p.rider_cancelled_pings) AS rider_cancelled_pings, 
+        SUM(p.customer_cancelled_pings) AS customer_cancelled_pings,
+        SUM(p.total_pings) AS total_pings,
+        SUM(p.login_hrs) AS login_hrs,
+        SUM(p.idle_hours) AS idle_hours,
+        COUNT(DISTINCT CASE WHEN p.net_orders > 0 THEN p.yyyymmdd END) AS net_days
+    FROM ping p
+    INNER JOIN act a ON p.captain_id = a.captain_id
+    WHERE p.event_bucket = a.activation_bucket
+    GROUP BY 1, 2
+)
+
+-- Main query with M0 and M_rest metrics
+select
+    date_trunc(lower('{time_level}'), cast(activation_date as date)) as time_level,
+    -- M0 metrics
+    count(distinct act.captain_id) as "Activated_Captain_M0",
+    count(distinct case when pm0.login_hrs > 0 then act.captain_id end) as "Online_Captains_M0",
+    count(distinct case when pm0.total_pings > 0 then act.captain_id end) as "Ping_Received_Captains_M0",
+    count(distinct case when pm0.accepted_pings > 0 then act.captain_id end) as "Ping_Accepted_Captains_M0",
+    count(distinct case when pm0.net_orders > 0 then act.captain_id end) as "Net_Captains_M0",
+    count(distinct case when pm0.net_days = 0 or pm0.net_days is null then act.captain_id end) as "Zero_Ride_M0",
+    count(distinct case when pm0.net_days >= 1 and pm0.net_days <= 5 then act.captain_id end) as "HH_M0",
+    count(distinct case when pm0.net_days >= 6 then act.captain_id end) as "PHH_M0",
+    
+
+    
+    -- M0 percentages
+    (count(distinct case when pm0.login_hrs > 0 then act.captain_id end) * 100.0) / 
+        nullif(count(distinct act.captain_id), 0) as "Online%_M0",
+    (count(distinct case when pm0.total_pings > 0 then act.captain_id end) * 100.0) / 
+        nullif(count(distinct act.captain_id), 0) as "Ping_Received%_M0",
+    (count(distinct case when pm0.accepted_pings > 0 then act.captain_id end) * 100.0) / 
+        nullif(count(distinct act.captain_id), 0) as "Ping_Accepted%_M0",
+    (count(distinct case when pm0.net_orders > 0 then act.captain_id end) * 100.0) / 
+        nullif(count(distinct act.captain_id), 0) as "Net_Captains%_M0",
+    (count(distinct case when pm0.net_days = 0 or pm0.net_days is null then act.captain_id end) * 100.0) / 
+        nullif(count(distinct act.captain_id), 0) as "Zero_Captain%_M0",
+    (count(distinct case when pm0.net_days >= 1 and pm0.net_days <= 5 then act.captain_id end) * 100.0) / 
+        nullif(count(distinct act.captain_id), 0) as "HH%_M0",
+    (count(distinct case when pm0.net_days >= 6 then act.captain_id end) * 100.0) / 
+        nullif(count(distinct act.captain_id), 0) as "PHH%_M0"
+    
+
+
+from act
+left join ping_m0 pm0 on act.captain_id = pm0.captain_id and act.final_service = pm0.service
+--left join ping_m_rest pmr on act.captain_id = pmr.captain_id and act.final_service = pmr.service
+where lower(final_service) = lower('{service}')
+group by 1
+order by 1
+    """
+    df = pd.read_sql(query, presto_connection)
+    return df

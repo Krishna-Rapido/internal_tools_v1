@@ -260,3 +260,48 @@ class RtuPerformanceResponse(BaseModel):
     data: List[Dict[str, Any]]  # Full result set
 
 
+class R2ARequest(BaseModel):
+    username: str
+    start_date: str = "20251015"
+    end_date: str = "20251130"
+    city: str = "hyderabad"
+    service: str = "auto"
+    time_level: str = "day"
+
+
+class R2AResponse(BaseModel):
+    num_rows: int
+    columns: List[str]
+    data: List[Dict[str, Any]]  # Full result set
+
+
+class R2APercentageRequest(BaseModel):
+    username: str
+    start_date: str = "20251001"
+    end_date: str = "20251130"
+    city: str = "hyderabad"
+    service: str = "auto"
+    time_level: str = "day"
+
+
+class R2APercentageResponse(BaseModel):
+    num_rows: int
+    columns: List[str]
+    data: List[Dict[str, Any]]  # Full result set
+
+
+class A2PhhSummaryRequest(BaseModel):
+    username: str
+    start_date: str = "20251001"
+    end_date: str = "20251130"
+    city: str = "bangalore"
+    service: str = "auto"
+    time_level: str = "day"
+
+
+class A2PhhSummaryResponse(BaseModel):
+    num_rows: int
+    columns: List[str]
+    data: List[Dict[str, Any]]  # Full result set
+
+
