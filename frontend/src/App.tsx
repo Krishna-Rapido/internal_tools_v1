@@ -240,7 +240,7 @@ function App() {
       <div className="app-container">
         {/* Title Bar */}
         <div className="title-bar">
-          <h1 className="title-text">BYOB Ladoo Metrics</h1>
+          <h1 className="title-text">Ladoo Metrics</h1>
         </div>
 
         {/* Captain Dashboards Section - Always visible */}
