@@ -69,6 +69,7 @@ class FunnelRequest(BaseModel):
     test_confirmed: Optional[str] = None  # per-test confirmation filter
     control_confirmed: Optional[str] = None  # per-control confirmation filter
     agg: Optional[Literal["sum", "mean", "count"]] = None  # optional aggregation for arbitrary metric
+    series_breakout: Optional[str] = None  # categorical column to group by for series breakout
 
 
 class FunnelPoint(BaseModel):
@@ -76,6 +77,7 @@ class FunnelPoint(BaseModel):
     cohort: str
     metric: str
     value: float
+    series_value: Optional[str] = None  # value of the series breakout column
 
 
 class FunnelResponse(BaseModel):
@@ -303,5 +305,46 @@ class A2PhhSummaryResponse(BaseModel):
     num_rows: int
     columns: List[str]
     data: List[Dict[str, Any]]  # Full result set
+
+
+class ReportItem(BaseModel):
+    id: str
+    type: str  # 'chart', 'table', 'text'
+    title: str
+    content: Dict[str, Any]  # Chart config, table data, or text content
+    comment: str = ""
+    timestamp: str
+
+
+class ReportAddRequest(BaseModel):
+    type: str
+    title: str
+    content: Dict[str, Any]
+    comment: str = ""
+
+
+class ReportAddResponse(BaseModel):
+    report_id: str
+    item_id: str
+    num_items: int
+
+
+class ReportUpdateCommentRequest(BaseModel):
+    item_id: str
+    comment: str
+
+
+class ReportUpdateTitleRequest(BaseModel):
+    item_id: str
+    title: str
+
+
+class ReportListResponse(BaseModel):
+    report_id: str
+    items: List[ReportItem]
+
+
+class ReportExportResponse(BaseModel):
+    report_html: str
 
 
